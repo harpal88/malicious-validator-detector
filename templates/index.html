@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Solana Validator Detector - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 text-center mb-5">
+        <div class="hero-section py-4">
+            <svg width="80" height="80" viewBox="0 0 397 311" fill="none" xmlns="http://www.w3.org/2000/svg" class="mb-3">
+                <path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z" fill="#9945FF"/>
+                <path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z" fill="#03E1FF"/>
+                <path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z" fill="#14F195"/>
+            </svg>
+            <h1 class="display-4 fw-bold mb-3">Solana Validator Detector</h1>
+            <p class="lead col-md-8 mx-auto">Identify and address malicious validators on the Solana network with our comprehensive security analysis tool</p>
+            <div class="d-flex justify-content-center mt-4">
+                <a href="#validator-section" class="btn btn-primary me-3">Check Validator</a>
+                <a href="/dashboard" class="btn btn-outline-primary">View Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" id="validator-section">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center">
+                <i class="bi bi-shield-check me-2"></i>
+                <h5 class="mb-0">Check Single Validator</h5>
+            </div>
+            <div class="card-body">
+                <form id="validator-form">
+                    <div class="mb-3">
+                        <label for="validator_pubkey" class="form-label">Validator Public Key</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input type="text" class="form-control" id="validator_pubkey" name="validator_pubkey"
+                                   placeholder="Enter validator public key" required>
+                        </div>
+                        <small class="text-muted mt-1">Enter a Solana validator public key to analyze its behavior</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-2"></i>Analyze Validator
+                    </button>
+                </form>
+                <div id="validator-result" class="mt-4 d-none">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert" id="risk-alert">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    <h5 class="mb-0">Risk Score: <span id="risk-score"></span>/100</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert" id="performance-alert">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-graph-up me-2"></i>
+                                    <h5 class="mb-0">Performance: <span id="performance-score"></span>/13</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="risk-factors" class="mt-3"></div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a id="full-report-link" class="btn btn-outline-primary">
+                            <i class="bi bi-file-earmark-text me-2"></i>View Full Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center">
+                <i class="bi bi-bar-chart-line me-2"></i>
+                <h5 class="mb-0">Network Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <div class="stat-icon mb-2">
+                                <i class="bi bi-hdd-network"></i>
+                            </div>
+                            <h6>Total Active Validators</h6>
+                            <p class="stat-value">{{ network_stats.total_validators }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <div class="stat-icon mb-2">
+                                <i class="bi bi-clock-history"></i>
+                            </div>
+                            <h6>Current Epoch</h6>
+                            <p class="stat-value">{{ network_stats.current_epoch }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <div class="stat-icon mb-2">
+                                <i class="bi bi-award"></i>
+                            </div>
+                            <h6>Avg. Epoch Credits</h6>
+                            <p class="stat-value">{{ network_stats.avg_epoch_credits|int }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <div class="stat-icon mb-2">
+                                <i class="bi bi-skip-forward"></i>
+                            </div>
+                            <h6>Avg. Skipped Slots</h6>
+                            <p class="stat-value">{{ network_stats.avg_skipped_slots }}%</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <a href="/dashboard" class="btn btn-outline-primary">
+                        <i class="bi bi-table me-2"></i>View Top Validators
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex align-items-center">
+                <i class="bi bi-info-circle me-2"></i>
+                <h5 class="mb-0">About This Tool</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <p class="lead">The Solana Malicious Validator Detector helps identify validators that may be engaging in harmful activities on the Solana network.</p>
+
+                        <div class="mt-4">
+                            <h6 class="mb-3">Key Features:</h6>
+                            <div class="feature-list">
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="bi bi-shield-exclamation"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <h6>Double-signing Detection</h6>
+                                        <p>Identifies validators signing multiple blocks at the same height</p>
+                                    </div>
+                                </div>
+
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="bi bi-filter-circle"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <h6>Transaction Censorship Analysis</h6>
+                                        <p>Detects validators selectively excluding transactions</p>
+                                    </div>
+                                </div>
+
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <h6>Network Attack Monitoring</h6>
+                                        <p>Identifies validators attempting to disrupt network operations</p>
+                                    </div>
+                                </div>
+
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="bi bi-clock"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <h6>Downtime Pattern Analysis</h6>
+                                        <p>Detects validators with suspicious availability patterns</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="about-image-container text-center">
+                            <svg width="200" height="200" viewBox="0 0 397 311" fill="none" xmlns="http://www.w3.org/2000/svg" class="about-image">
+                                <path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z" fill="#9945FF" fill-opacity="0.3"/>
+                                <path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z" fill="#03E1FF" fill-opacity="0.3"/>
+                                <path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z" fill="#14F195" fill-opacity="0.3"/>
+                            </svg>
+                            <div class="mt-4">
+                                <p>Use this tool to monitor validators and ensure the health of the Solana network.</p>
+                                <a href="https://solana.com/validators" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Learn More About Solana Validators
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const validatorForm = document.getElementById('validator-form');
+    const validatorResult = document.getElementById('validator-result');
+    const riskAlert = document.getElementById('risk-alert');
+    const riskScore = document.getElementById('risk-score');
+    const performanceAlert = document.getElementById('performance-alert');
+    const performanceScore = document.getElementById('performance-score');
+    const riskFactors = document.getElementById('risk-factors');
+    const fullReportLink = document.getElementById('full-report-link');
+
+    validatorForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(validatorForm);
+        const validatorPubkey = formData.get('validator_pubkey');
+
+        // Show loading state
+        validatorResult.classList.remove('d-none');
+        riskFactors.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Analyzing validator...</p></div>';
+
+        fetch('/check_validator', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update risk score
+            riskScore.textContent = data.risk_score;
+
+            // Set appropriate color for risk alert
+            riskAlert.className = 'alert';
+            // Convert risk score to number for comparison
+            const riskScoreNum = parseInt(data.risk_score) || 0;
+            if (riskScoreNum > 70) {
+                riskAlert.classList.add('alert-danger');
+            } else if (riskScoreNum > 30) {
+                riskAlert.classList.add('alert-warning');
+            } else {
+                riskAlert.classList.add('alert-success');
+            }
+
+            // Update performance score (with error handling)
+            if (data.performance_score && typeof data.performance_score.total !== 'undefined') {
+                performanceScore.textContent = data.performance_score.total;
+
+                // Set appropriate color for performance alert
+                performanceAlert.className = 'alert';
+                // Convert performance score to number for comparison
+                const perfScoreNum = parseInt(data.performance_score.total) || 0;
+                if (perfScoreNum > 9) {
+                    performanceAlert.classList.add('alert-success');
+                } else if (perfScoreNum > 5) {
+                    performanceAlert.classList.add('alert-warning');
+                } else {
+                    performanceAlert.classList.add('alert-danger');
+                }
+            } else {
+                // Handle missing performance score
+                performanceScore.textContent = 'N/A';
+                performanceAlert.className = 'alert alert-secondary';
+            }
+
+            // Display risk factors
+            riskFactors.innerHTML = '<h6>Risk Factors:</h6>';
+            if (data.risk_factors && data.risk_factors.length > 0) {
+                const ul = document.createElement('ul');
+                data.risk_factors.forEach(factor => {
+                    const li = document.createElement('li');
+                    li.textContent = `${factor[0]} (${factor[1]} points)`;
+                    ul.appendChild(li);
+                });
+                riskFactors.appendChild(ul);
+            } else {
+                riskFactors.innerHTML += '<p>No significant risk factors detected.</p>';
+            }
+
+            // Add performance score breakdown (with error handling)
+            if (data.performance_score && typeof data.performance_score.total !== 'undefined') {
+                riskFactors.innerHTML += '<h6 class="mt-4">Performance Score Highlights:</h6>';
+                const perfHighlights = document.createElement('ul');
+
+                try {
+                    // Add top scores
+                    const topScores = Object.entries(data.performance_score)
+                        .filter(([key, value]) => key !== 'total' && value > 0)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3);
+
+                    if (topScores.length > 0) {
+                        topScores.forEach(([key, value]) => {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<span class="text-success">✅</span> ${key.replace('_', ' ').toUpperCase()}: ${value} points`;
+                            perfHighlights.appendChild(li);
+                        });
+                    }
+
+                    // Add contra-scores
+                    const contraScores = Object.entries(data.performance_score)
+                        .filter(([key, value]) => key !== 'total' && value < 0);
+
+                    if (contraScores.length > 0) {
+                        contraScores.forEach(([key, value]) => {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<span class="text-danger">⛔</span> ${key.replace('_', ' ').toUpperCase()}: ${value} points`;
+                            perfHighlights.appendChild(li);
+                        });
+                    }
+
+                    if (topScores.length > 0 || contraScores.length > 0) {
+                        riskFactors.appendChild(perfHighlights);
+                    } else {
+                        riskFactors.innerHTML += '<p>No significant performance highlights.</p>';
+                    }
+                } catch (err) {
+                    console.error('Error processing performance score:', err);
+                    riskFactors.innerHTML += '<p>Error processing performance data.</p>';
+                }
+            }
+
+            // Update full report link
+            fullReportLink.href = `/validator_report/${validatorPubkey}`;
+        })
+        .catch(error => {
+            validatorResult.classList.remove('d-none');
+            riskFactors.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

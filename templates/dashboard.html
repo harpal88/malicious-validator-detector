@@ -1,0 +1,961 @@
+{% extends "base.html" %}
+
+{% block title %}Validator Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-5">
+    <div class="col-md-12">
+        <div class="dashboard-header">
+            <div class="dashboard-header-content">
+                <h1 class="display-5 fw-bold mb-3">Validator Dashboard</h1>
+                <p class="lead">Monitoring top validators on the Solana network</p>
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat-item">
+                        <div class="dashboard-stat-icon">
+                            <i class="bi bi-hdd-network"></i>
+                        </div>
+                        <div class="dashboard-stat-text">
+                            <h3>{{ validators|length }}</h3>
+                            <p>Validators</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-stat-item">
+                        <div class="dashboard-stat-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div class="dashboard-stat-text">
+                            <h3>{{ validators|selectattr('delinquent', 'equalto', false)|list|length }}</h3>
+                            <p>Active</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-stat-item">
+                        <div class="dashboard-stat-icon warning">
+                            <i class="bi bi-shield-exclamation"></i>
+                        </div>
+                        <div class="dashboard-stat-text">
+                            <h3>{{ validators|selectattr('delinquent', 'equalto', true)|list|length }}</h3>
+                            <p>Delinquent</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card dashboard-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-table me-2"></i>
+                    <h5 class="mb-0">Top Validators</h5>
+                </div>
+                <form class="d-flex align-items-center" id="limit-form">
+                    <label class="me-2 form-label my-auto">Show:</label>
+                    <select class="form-select form-select-sm custom-select" id="limit-select" name="limit">
+                        <option value="5" {% if request.args.get('limit') == '5' %}selected{% endif %}>5</option>
+                        <option value="10" {% if request.args.get('limit', '10') == '10' %}selected{% endif %}>10</option>
+                        <option value="20" {% if request.args.get('limit') == '20' %}selected{% endif %}>20</option>
+                        <option value="50" {% if request.args.get('limit') == '50' %}selected{% endif %}>50</option>
+                    </select>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover custom-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" width="50">#</th>
+                                <th>Name</th>
+                                <th>Public Key</th>
+                                <th class="text-center">Status Check</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="validators-table-body">
+                            {% for validator in validators %}
+                            <tr>
+                                <td class="text-center">{{ loop.index }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="validator-icon me-2">
+                                            <i class="bi bi-hdd"></i>
+                                        </div>
+                                        <div>
+                                            <strong>{{ validator.name }}</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="pubkey-truncated">{{ validator.account[:10] }}...{{ validator.account[-5:] }}</span>
+                                        <span class="pubkey-tooltip ms-2" data-bs-toggle="tooltip" title="{{ validator.account }}">
+                                            <i class="bi bi-info-circle"></i>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="score-pill success">
+                                        <i class="bi bi-shield me-1"></i> Check
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="status-badge {% if validator.delinquent %}danger{% else %}success{% endif %}">
+                                        <i class="bi {% if validator.delinquent %}bi-exclamation-triangle-fill{% else %}bi-check-circle-fill{% endif %} me-1"></i>
+                                        {% if validator.delinquent %}Delinquent{% else %}Active{% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group">
+                                        <a href="/validator_report/{{ validator.account }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-file-earmark-text me-1"></i> Report
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-primary check-validator-btn"
+                                                data-pubkey="{{ validator.account }}">
+                                            <i class="bi bi-search me-1"></i> Quick Check
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Quick Check -->
+<div class="modal fade" id="quickCheckModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <div class="d-flex align-items-center">
+                    <div class="modal-icon me-3">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <h5 class="modal-title">Validator Quick Check</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-5" id="loading-spinner">
+                    <div class="spinner">
+                        <div class="double-bounce1"></div>
+                        <div class="double-bounce2"></div>
+                    </div>
+                    <p class="mt-4">Analyzing validator security and performance...</p>
+                </div>
+                <div id="quick-check-result" class="d-none">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="score-card" id="risk-score-card">
+                                <div class="score-card-header">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <h6>Risk Score</h6>
+                                </div>
+                                <div class="score-card-body">
+                                    <div class="score-circle" id="risk-score-circle">
+                                        <span id="quick-risk-score"></span>
+                                    </div>
+                                    <div class="score-label" id="risk-score-label"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="score-card" id="performance-score-card">
+                                <div class="score-card-header">
+                                    <i class="bi bi-graph-up"></i>
+                                    <h6>Performance Score</h6>
+                                </div>
+                                <div class="score-card-body">
+                                    <div class="score-circle" id="performance-score-circle">
+                                        <span id="quick-performance-score"></span>
+                                    </div>
+                                    <div class="score-label" id="performance-score-label"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="factors-container">
+                        <div id="quick-risk-factors" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> Close
+                </button>
+                <a id="full-report-modal-link" class="btn btn-primary">
+                    <i class="bi bi-file-earmark-text me-1"></i> View Full Report
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<style>
+/* Dashboard Header */
+.dashboard-header {
+    background: linear-gradient(135deg, rgba(153, 69, 255, 0.15) 0%, rgba(3, 225, 255, 0.15) 100%);
+    border-radius: 12px;
+    padding: 40px 30px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(153, 69, 255, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-header h1 {
+    background: linear-gradient(90deg, var(--solana-purple), var(--solana-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 15px;
+}
+
+.dashboard-stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.dashboard-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background-color: rgba(50, 50, 50, 0.8);
+    padding: 15px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    flex: 1;
+}
+
+.dashboard-stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--solana-purple), var(--solana-blue));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+}
+
+.dashboard-stat-icon.warning {
+    background: linear-gradient(135deg, #FFC107, #FF9800);
+}
+
+.dashboard-stat-text h3 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 0;
+    color: white;
+}
+
+.dashboard-stat-text p {
+    margin-bottom: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* Dashboard Card */
+.dashboard-card {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background-color: rgba(35, 35, 35, 0.95);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+/* Custom Table */
+.custom-table {
+    margin-bottom: 0;
+}
+
+.custom-table th {
+    background-color: rgba(60, 60, 60, 0.95);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    padding: 15px;
+    border-top: none;
+}
+
+.custom-table td {
+    padding: 15px;
+    vertical-align: middle;
+    border-color: rgba(80, 80, 80, 0.2);
+}
+
+.custom-table tbody tr {
+    transition: background-color 0.3s ease;
+}
+
+.custom-table tbody tr:hover {
+    background-color: rgba(153, 69, 255, 0.1);
+}
+
+/* Validator Icon */
+.validator-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(153, 69, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--solana-purple);
+    font-size: 16px;
+}
+
+/* Score Pill */
+.score-pill {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 50px;
+    text-align: center;
+}
+
+.score-pill.success {
+    background-color: rgba(20, 241, 149, 0.2);
+    color: var(--solana-teal);
+    border: 1px solid rgba(20, 241, 149, 0.3);
+}
+
+.score-pill.warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #FFC107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.score-pill.danger {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #FF6B6B;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.status-badge.success {
+    background-color: rgba(20, 241, 149, 0.1);
+    color: var(--solana-teal);
+}
+
+.status-badge.danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #FF6B6B;
+}
+
+/* Custom Select */
+.custom-select {
+    background-color: rgba(50, 50, 50, 0.8);
+    border: 1px solid var(--border-color);
+    color: white;
+    border-radius: 6px;
+}
+
+.custom-select:focus {
+    background-color: rgba(60, 60, 60, 0.9);
+    border-color: var(--solana-purple);
+    box-shadow: 0 0 0 0.25rem rgba(153, 69, 255, 0.25);
+    color: white;
+}
+
+/* Public Key */
+.pubkey-truncated {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.9rem;
+    background-color: rgba(3, 225, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--solana-blue);
+}
+
+.pubkey-tooltip {
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+/* Custom Modal */
+.custom-modal {
+    background-color: rgba(35, 35, 35, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: white;
+}
+
+.custom-modal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+    padding: 20px;
+    background-color: rgba(40, 40, 40, 0.9);
+}
+
+.custom-modal .modal-footer {
+    border-top: 1px solid var(--border-color);
+    padding: 20px;
+}
+
+.modal-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--solana-purple), var(--solana-blue));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+}
+
+/* Score Cards */
+.score-card {
+    background-color: rgba(40, 40, 40, 0.8);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    height: 100%;
+}
+
+.score-card-header {
+    background-color: rgba(50, 50, 50, 0.9);
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.score-card-header i {
+    font-size: 18px;
+}
+
+.score-card-header h6 {
+    margin-bottom: 0;
+    font-weight: 600;
+}
+
+.score-card-body {
+    padding: 20px;
+    text-align: center;
+}
+
+.score-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 32px;
+    font-weight: bold;
+    position: relative;
+    color: white;
+}
+
+#risk-score-circle {
+    background: linear-gradient(135deg, #DC3545, #FF6B6B);
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+}
+
+#performance-score-circle {
+    background: linear-gradient(135deg, var(--solana-purple), var(--solana-blue));
+    box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
+}
+
+.score-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Factors Container */
+.factors-container {
+    background-color: rgba(40, 40, 40, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}
+
+/* Custom Spinner */
+.spinner {
+    width: 60px;
+    height: 60px;
+    position: relative;
+    margin: 0 auto;
+}
+
+.double-bounce1, .double-bounce2 {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: var(--solana-purple);
+    opacity: 0.6;
+    position: absolute;
+    top: 0;
+    left: 0;
+    animation: sk-bounce 2.0s infinite ease-in-out;
+}
+
+.double-bounce2 {
+    background-color: var(--solana-blue);
+    animation-delay: -1.0s;
+}
+
+@keyframes sk-bounce {
+    0%, 100% {
+        transform: scale(0.0);
+    } 50% {
+        transform: scale(1.0);
+    }
+}
+
+/* Risk Factors */
+.risk-factors-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* Performance Section */
+.performance-section {
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.performance-category-title {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.performance-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.performance-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background-color: rgba(50, 50, 50, 0.7);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.performance-item-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.performance-item.positive .performance-item-icon {
+    background-color: rgba(20, 241, 149, 0.2);
+    color: var(--solana-teal);
+}
+
+.performance-item.negative .performance-item-icon {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #FF6B6B;
+}
+
+.performance-item-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.performance-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+}
+
+.performance-item-value {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.risk-factor-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background-color: rgba(50, 50, 50, 0.7);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.risk-factor-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+    color: white;
+}
+
+.risk-factor-badge.high {
+    background-color: rgba(220, 53, 69, 0.8);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.risk-factor-badge.medium {
+    background-color: rgba(255, 193, 7, 0.8);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.risk-factor-badge.low {
+    background-color: rgba(108, 117, 125, 0.8);
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.risk-factor-text {
+    font-size: 14px;
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 40px;
+    color: var(--solana-teal);
+    margin-bottom: 15px;
+    display: block;
+}
+
+.empty-state p {
+    margin-bottom: 0;
+    font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dashboard-stats {
+        flex-direction: column;
+    }
+
+    .score-circle {
+        width: 80px;
+        height: 80px;
+        font-size: 26px;
+    }
+
+    .dashboard-header {
+        padding: 30px 20px;
+    }
+
+    .risk-factor-item {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 15px;
+    }
+
+    .risk-factor-badge {
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle limit change
+    const limitSelect = document.getElementById('limit-select');
+    limitSelect.addEventListener('change', function() {
+        window.location.href = '/dashboard?limit=' + this.value;
+    });
+
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Quick check functionality
+    const quickCheckButtons = document.querySelectorAll('.check-validator-btn');
+    const quickCheckModal = new bootstrap.Modal(document.getElementById('quickCheckModal'));
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const quickCheckResult = document.getElementById('quick-check-result');
+    const quickRiskAlert = document.getElementById('quick-risk-alert');
+    const quickRiskScore = document.getElementById('quick-risk-score');
+    const quickPerformanceAlert = document.getElementById('quick-performance-alert');
+    const quickPerformanceScore = document.getElementById('quick-performance-score');
+    const quickRiskFactors = document.getElementById('quick-risk-factors');
+    const fullReportModalLink = document.getElementById('full-report-modal-link');
+
+    quickCheckButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const validatorPubkey = this.getAttribute('data-pubkey');
+
+            // Reset and show modal
+            loadingSpinner.classList.remove('d-none');
+            quickCheckResult.classList.add('d-none');
+            quickCheckModal.show();
+
+            // Set the full report link
+            fullReportModalLink.href = `/validator_report/${validatorPubkey}`;
+
+            // Fetch validator data
+            const formData = new FormData();
+            formData.append('validator_pubkey', validatorPubkey);
+
+            fetch('/check_validator', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading, show results
+                loadingSpinner.classList.add('d-none');
+                quickCheckResult.classList.remove('d-none');
+
+                // Update risk score
+                quickRiskScore.textContent = data.risk_score;
+                const riskScoreCircle = document.getElementById('risk-score-circle');
+                const riskScoreLabel = document.getElementById('risk-score-label');
+                const riskScoreCard = document.getElementById('risk-score-card');
+
+                // Convert risk score to number for comparison
+                const riskScoreNum = parseInt(data.risk_score) || 0;
+
+                // Set appropriate styling for risk score
+                if (riskScoreNum > 70) {
+                    riskScoreCircle.style.background = 'linear-gradient(135deg, #DC3545, #FF6B6B)';
+                    riskScoreCircle.style.boxShadow = '0 5px 15px rgba(220, 53, 69, 0.3)';
+                    riskScoreLabel.textContent = 'High Risk';
+                    riskScoreLabel.style.color = '#FF6B6B';
+                } else if (riskScoreNum > 30) {
+                    riskScoreCircle.style.background = 'linear-gradient(135deg, #FFC107, #FF9800)';
+                    riskScoreCircle.style.boxShadow = '0 5px 15px rgba(255, 193, 7, 0.3)';
+                    riskScoreLabel.textContent = 'Medium Risk';
+                    riskScoreLabel.style.color = '#FFC107';
+                } else {
+                    riskScoreCircle.style.background = 'linear-gradient(135deg, #14F195, #0ACF83)';
+                    riskScoreCircle.style.boxShadow = '0 5px 15px rgba(20, 241, 149, 0.3)';
+                    riskScoreLabel.textContent = 'Low Risk';
+                    riskScoreLabel.style.color = '#14F195';
+                }
+
+                // Update performance score (with error handling)
+                if (data.performance_score && typeof data.performance_score.total !== 'undefined') {
+                    const perfScoreCircle = document.getElementById('performance-score-circle');
+                    const perfScoreLabel = document.getElementById('performance-score-label');
+                    const perfScoreCard = document.getElementById('performance-score-card');
+
+                    quickPerformanceScore.textContent = data.performance_score.total;
+
+                    // Convert performance score to number for comparison
+                    const perfScoreNum = parseInt(data.performance_score.total) || 0;
+
+                    // Set appropriate styling for performance score
+                    if (perfScoreNum > 9) {
+                        perfScoreCircle.style.background = 'linear-gradient(135deg, #9945FF, #03E1FF)';
+                        perfScoreCircle.style.boxShadow = '0 5px 15px rgba(153, 69, 255, 0.3)';
+                        perfScoreLabel.textContent = 'Excellent';
+                        perfScoreLabel.style.color = '#9945FF';
+                    } else if (perfScoreNum > 5) {
+                        perfScoreCircle.style.background = 'linear-gradient(135deg, #03E1FF, #0098FF)';
+                        perfScoreCircle.style.boxShadow = '0 5px 15px rgba(3, 225, 255, 0.3)';
+                        perfScoreLabel.textContent = 'Average';
+                        perfScoreLabel.style.color = '#03E1FF';
+                    } else {
+                        perfScoreCircle.style.background = 'linear-gradient(135deg, #6C757D, #495057)';
+                        perfScoreCircle.style.boxShadow = '0 5px 15px rgba(108, 117, 125, 0.3)';
+                        perfScoreLabel.textContent = 'Poor';
+                        perfScoreLabel.style.color = '#6C757D';
+                    }
+                } else {
+                    // Handle missing performance score
+                    const perfScoreCircle = document.getElementById('performance-score-circle');
+                    const perfScoreLabel = document.getElementById('performance-score-label');
+
+                    quickPerformanceScore.textContent = 'N/A';
+                    perfScoreCircle.style.background = 'linear-gradient(135deg, #6C757D, #495057)';
+                    perfScoreLabel.textContent = 'Not Available';
+                    perfScoreLabel.style.color = '#6C757D';
+                }
+
+                // Display risk factors
+                quickRiskFactors.innerHTML = '<h6 class="mb-3">Risk Factors:</h6>';
+                if (data.risk_factors && data.risk_factors.length > 0) {
+                    const factorsList = document.createElement('div');
+                    factorsList.className = 'risk-factors-list';
+
+                    data.risk_factors.forEach(factor => {
+                        const factorItem = document.createElement('div');
+                        factorItem.className = 'risk-factor-item';
+
+                        // Determine severity class
+                        let severityClass = '';
+                        // Convert factor score to number for comparison
+                        const factorScore = parseInt(factor[1]) || 0;
+                        if (factorScore > 30) {
+                            severityClass = 'high';
+                        } else if (factorScore > 10) {
+                            severityClass = 'medium';
+                        } else {
+                            severityClass = 'low';
+                        }
+
+                        factorItem.innerHTML = `
+                            <div class="risk-factor-badge ${severityClass}">${factor[1]}</div>
+                            <div class="risk-factor-text">${factor[0]}</div>
+                        `;
+                        factorsList.appendChild(factorItem);
+                    });
+
+                    quickRiskFactors.appendChild(factorsList);
+                } else {
+                    const emptyState = document.createElement('div');
+                    emptyState.className = 'empty-state';
+                    emptyState.innerHTML = `
+                        <i class="bi bi-shield-check"></i>
+                        <p>No significant risk factors detected.</p>
+                    `;
+                    quickRiskFactors.appendChild(emptyState);
+                }
+
+                // Add performance score breakdown (with error handling)
+                if (data.performance_score && typeof data.performance_score.total !== 'undefined') {
+                    const perfSection = document.createElement('div');
+                    perfSection.className = 'performance-section mt-4';
+                    perfSection.innerHTML = '<h6 class="mb-3">Performance Score Highlights:</h6>';
+
+                    try {
+                        const perfHighlights = document.createElement('div');
+                        perfHighlights.className = 'performance-highlights';
+
+                        // Add top scores
+                        const topScores = Object.entries(data.performance_score)
+                            .filter(([key, value]) => key !== 'total' && value > 0)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 3);
+
+                        if (topScores.length > 0) {
+                            const topScoresContainer = document.createElement('div');
+                            topScoresContainer.className = 'performance-category';
+                            topScoresContainer.innerHTML = '<h6 class="performance-category-title">Top Metrics</h6>';
+
+                            const topScoresList = document.createElement('div');
+                            topScoresList.className = 'performance-items';
+
+                            topScores.forEach(([key, value]) => {
+                                const item = document.createElement('div');
+                                item.className = 'performance-item positive';
+                                item.innerHTML = `
+                                    <div class="performance-item-icon">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    </div>
+                                    <div class="performance-item-content">
+                                        <div class="performance-item-title">${key.replace('_', ' ').toUpperCase()}</div>
+                                        <div class="performance-item-value">+${value} points</div>
+                                    </div>
+                                `;
+                                topScoresList.appendChild(item);
+                            });
+
+                            topScoresContainer.appendChild(topScoresList);
+                            perfHighlights.appendChild(topScoresContainer);
+                        }
+
+                        // Add contra-scores
+                        const contraScores = Object.entries(data.performance_score)
+                            .filter(([key, value]) => key !== 'total' && value < 0);
+
+                        if (contraScores.length > 0) {
+                            const contraScoresContainer = document.createElement('div');
+                            contraScoresContainer.className = 'performance-category mt-3';
+                            contraScoresContainer.innerHTML = '<h6 class="performance-category-title">Contra Scores</h6>';
+
+                            const contraScoresList = document.createElement('div');
+                            contraScoresList.className = 'performance-items';
+
+                            contraScores.forEach(([key, value]) => {
+                                const item = document.createElement('div');
+                                item.className = 'performance-item negative';
+                                item.innerHTML = `
+                                    <div class="performance-item-icon">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                    </div>
+                                    <div class="performance-item-content">
+                                        <div class="performance-item-title">${key.replace('_', ' ').toUpperCase()}</div>
+                                        <div class="performance-item-value">${value} points</div>
+                                    </div>
+                                `;
+                                contraScoresList.appendChild(item);
+                            });
+
+                            contraScoresContainer.appendChild(contraScoresList);
+                            perfHighlights.appendChild(contraScoresContainer);
+                        }
+
+                        if (topScores.length > 0 || contraScores.length > 0) {
+                            perfSection.appendChild(perfHighlights);
+                            quickRiskFactors.appendChild(perfSection);
+                        } else {
+                            const emptyState = document.createElement('div');
+                            emptyState.className = 'empty-state';
+                            emptyState.innerHTML = `
+                                <i class="bi bi-bar-chart"></i>
+                                <p>No significant performance highlights.</p>
+                            `;
+                            perfSection.appendChild(emptyState);
+                            quickRiskFactors.appendChild(perfSection);
+                        }
+                    } catch (err) {
+                        console.error('Error processing performance score:', err);
+                        const errorState = document.createElement('div');
+                        errorState.className = 'alert alert-danger';
+                        errorState.textContent = 'Error processing performance data.';
+                        perfSection.appendChild(errorState);
+                        quickRiskFactors.appendChild(perfSection);
+                    }
+                }
+            })
+            .catch(error => {
+                loadingSpinner.classList.add('d-none');
+                quickCheckResult.classList.remove('d-none');
+                quickCheckResult.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

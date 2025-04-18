@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Validator Report - {{ analysis.validator }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Validator Security Report</h1>
+        <h5 class="text-muted">{{ analysis.validator }}</h5>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Risk Assessment</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="risk-score-circle
+                    {% if analysis.risk_score|int > 70 %}bg-danger
+                    {% elif analysis.risk_score|int > 30 %}bg-warning
+                    {% else %}bg-success{% endif %}">
+                    <span>{{ analysis.risk_score }}</span>
+                </div>
+                <p class="mt-3">
+                    {% if analysis.risk_score|int > 70 %}
+                        <span class="badge bg-danger">High Risk</span>
+                    {% elif analysis.risk_score|int > 30 %}
+                        <span class="badge bg-warning">Medium Risk</span>
+                    {% else %}
+                        <span class="badge bg-success">Low Risk</span>
+                    {% endif %}
+                </p>
+                <p class="text-muted">Risk Score (0-100)</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Performance Score</h5>
+            </div>
+            <div class="card-body text-center">
+                {% if analysis.performance_score is defined and analysis.performance_score.total is defined %}
+                    <div class="performance-score-circle
+                        {% if analysis.performance_score.total|int > 9 %}bg-success
+                        {% elif analysis.performance_score.total|int > 5 %}bg-warning
+                        {% else %}bg-danger{% endif %}">
+                        <span>{{ analysis.performance_score.total }}</span>
+                    </div>
+                    <p class="mt-3">
+                        {% if analysis.performance_score.total|int > 9 %}
+                            <span class="badge bg-success">Excellent</span>
+                        {% elif analysis.performance_score.total|int > 5 %}
+                            <span class="badge bg-warning">Average</span>
+                        {% else %}
+                            <span class="badge bg-danger">Poor</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-muted">Performance Score (0-13)</p>
+                {% else %}
+                    <div class="performance-score-circle bg-secondary">
+                        <span>N/A</span>
+                    </div>
+                    <p class="mt-3">
+                        <span class="badge bg-secondary">Not Available</span>
+                    </p>
+                    <p class="text-muted">Performance data not available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Risk Factors</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.risk_factors %}
+                    <ul class="list-group">
+                    {% for factor, score in analysis.risk_factors %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ factor }}
+                            <span class="badge {% if score|int > 30 %}bg-danger{% else %}bg-warning{% endif %} rounded-pill">{{ score }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No risk factors detected.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Voting Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.checks.voting %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Commission:</strong> {{ analysis.checks.voting.commission }}%</p>
+                            <p><strong>Epoch Credits:</strong> {{ analysis.checks.voting.epoch_credits }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Last Vote:</strong> {{ analysis.checks.voting.last_vote }}</p>
+                            <p><strong>Status:</strong>
+                                {% if analysis.checks.voting.delinquent %}
+                                    <span class="badge bg-danger">Delinquent</span>
+                                {% else %}
+                                    <span class="badge bg-success">Active</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                {% else %}
+                    <p>No voting activity data available.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Double-Signing Check</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.checks.double_sign %}
+                    <p><strong>Suspicious Slots:</strong> {{ analysis.checks.double_sign.suspicious_slots|length }}</p>
+                    <p><strong>Total Transactions:</strong> {{ analysis.checks.double_sign.total_txs }}</p>
+                    {% if analysis.checks.double_sign.suspicious_slots %}
+                        <div class="alert alert-warning">
+                            <strong>Warning:</strong> Potential double-signing detected in {{ analysis.checks.double_sign.suspicious_slots|length }} slots.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success">
+                            <strong>Good:</strong> No evidence of double-signing detected.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p>No double-signing data available.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.checks.performance %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Skipped Slots:</strong> {{ analysis.checks.performance.skipped_slots }}%</p>
+                            <p><strong>Uptime:</strong> {{ analysis.checks.performance.uptime }}%</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Software Version:</strong> {{ analysis.checks.performance.software }}</p>
+                        </div>
+                    </div>
+
+                    <div class="progress mt-3">
+                        <div class="progress-bar
+                            {% if analysis.checks.performance.skipped_slots|float > 10 %}bg-danger
+                            {% elif analysis.checks.performance.skipped_slots|float > 5 %}bg-warning
+                            {% else %}bg-success{% endif %}"
+                            role="progressbar"
+                            style="width: {{ analysis.checks.performance.uptime }}%">
+                            {{ analysis.checks.performance.uptime }}% Uptime
+                        </div>
+                    </div>
+                {% else %}
+                    <p>No performance data available.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Censorship Analysis</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.checks.censorship.basic_check %}
+                    {% if analysis.checks.censorship.basic_check.suspicious %}
+                        <div class="alert alert-danger">
+                            <strong>Warning:</strong> Potential censorship detected.
+                        </div>
+                        <h6>Reasons:</h6>
+                        <ul>
+                            {% for reason in analysis.checks.censorship.basic_check.reasons %}
+                                <li>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="alert alert-success">
+                            <strong>Good:</strong> No evidence of censorship detected.
+                        </div>
+                    {% endif %}
+
+                    <p><strong>Skipped Slot Percentage:</strong> {{ analysis.checks.censorship.basic_check.skipped_slot_percent }}%</p>
+
+                    {% if analysis.checks.censorship.basic_check.mev_commission %}
+                        <p><strong>MEV Commission:</strong> {{ analysis.checks.censorship.basic_check.mev_commission }}</p>
+                    {% endif %}
+                {% else %}
+                    <p>No censorship data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Performance Score Breakdown</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.performance_score is defined and analysis.performance_score.total is defined %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Core Metrics</h6>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.root_block_distance == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.root_block_distance == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Root Block Distance
+                                        </td>
+                                        <td>{{ analysis.performance_score.root_block_distance }} points</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.vote_distance == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.vote_distance == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Vote Distance
+                                        </td>
+                                        <td>{{ analysis.performance_score.vote_distance }} points</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.skipped_slot == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.skipped_slot == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Skipped Slot %
+                                        </td>
+                                        <td>{{ analysis.performance_score.skipped_slot }} points</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.vote_latency == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.vote_latency == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Vote Latency
+                                        </td>
+                                        <td>{{ analysis.performance_score.vote_latency }} points</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Additional Metrics</h6>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.published_info == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.published_info == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Published Information
+                                        </td>
+                                        <td>{{ analysis.performance_score.published_info }} points</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.software_version == 2 %}
+                                                <span class="text-success">✅</span>
+                                            {% elif analysis.performance_score.software_version == 1 %}
+                                                <span class="text-warning">⚠️</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Software Version
+                                        </td>
+                                        <td>{{ analysis.performance_score.software_version }} points</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {% if analysis.performance_score.bonus_point == 1 %}
+                                                <span class="text-success">✅</span>
+                                            {% else %}
+                                                <span class="text-danger">❌</span>
+                                            {% endif %}
+                                            Security Bonus
+                                        </td>
+                                        <td>{{ analysis.performance_score.bonus_point }} points</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {% if analysis.performance_score.stake_concentration < 0 or
+                          analysis.performance_score.data_center_concentration < 0 or
+                          analysis.performance_score.authorized_withdrawer < 0 or
+                          analysis.performance_score.consensus_mods < 0 %}
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <h6>Contra-Scores</h6>
+                            <div class="alert alert-warning">
+                                <p>The following factors reduce the validator's performance score:</p>
+                                <ul class="mb-0">
+                                    {% if analysis.performance_score.stake_concentration < 0 %}
+                                    <li><span class="text-danger">⛔</span> Stake Concentration: {{ analysis.performance_score.stake_concentration }} points</li>
+                                    {% endif %}
+
+                                    {% if analysis.performance_score.data_center_concentration < 0 %}
+                                    <li><span class="text-danger">⛔</span> Data Center Concentration: {{ analysis.performance_score.data_center_concentration }} points</li>
+                                    {% endif %}
+
+                                    {% if analysis.performance_score.authorized_withdrawer < 0 %}
+                                    <li><span class="text-danger">⛔</span> Authorized Withdrawer Risk: {{ analysis.performance_score.authorized_withdrawer }} points</li>
+                                    {% endif %}
+
+                                    {% if analysis.performance_score.consensus_mods < 0 %}
+                                    <li><span class="text-danger">⛔</span> Consensus Mods: {{ analysis.performance_score.consensus_mods }} points</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-secondary">
+                        <p>Performance score breakdown is not available.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Recommendations</h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.risk_score|int > 70 %}
+                    <div class="alert alert-danger">
+                        <strong>🚨 Immediate action recommended</strong>
+                        <p>This validator shows significant signs of malicious behavior and should be investigated immediately.</p>
+                    </div>
+                {% elif analysis.risk_score|int > 30 %}
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Monitor closely</strong>
+                        <p>This validator shows some concerning patterns and should be monitored for further suspicious activity.</p>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success">
+                        <strong>✅ No immediate concerns</strong>
+                        <p>This validator appears to be operating normally with no significant risk factors detected.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.risk-score-circle, .performance-score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: white;
+    font-size: 36px;
+    font-weight: bold;
+}
+
+.performance-score-circle {
+    border: 4px solid #f8f9fa;
+}
+</style>
+{% endblock %}
