@@ -1,8 +1,14 @@
+
+https://github.com/user-attachments/assets/625acbd5-bfe7-43f6-b88e-db69d9c421b5
 # Solana Malicious Validator Detector
 
 A comprehensive tool for monitoring and detecting potentially malicious validators on the Solana network. This application helps identify validators engaging in harmful activities such as double-signing, transaction censorship, network attacks, and suspicious downtime patterns.
 
-![Solana Validator Detector](https://solana.com/src/images/branding/solanaLogoMark.svg)
+
+
+Uploading Solana Malicious Validator Detector.mp4…
+
+
 
 ## Features
 
