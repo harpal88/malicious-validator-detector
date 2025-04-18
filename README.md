@@ -41,8 +41,8 @@ The tool evaluates validators based on multiple performance metrics:
 ### Setup
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/solana-validator-detector.git
-cd solana-validator-detector
+git clone https://github.com/harpal88/malicious-validator-detector.git
+cd malicious-validator-detector
 ```
 
 2. Install dependencies:
